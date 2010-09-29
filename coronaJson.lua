@@ -17,23 +17,32 @@ local json = require ("dkjson")
 
 local physics = require("physics")
 
-jsonEventHandlers = {}
+local coronaJson = {}
 
-jsonObjects = {}
+local objectRegistry = {}
 
-jTableInsert = function(t,item)
-	if(not t) then t = {} end
-	table.insert(t,item)
-	return t
+coronaJson.objRegister = function(name,obj)
+	objectRegistry[name] = obj
+end
+
+coronaJson.objRegistry = function(name)
+	return objectRegistry[name]
 end
 
 
-jsetFillColor = function( o, r, g, b, a )
+coronaJson.tableInsert = function(tbl,item)
+	if(not tbl) then tbl = {} end
+	table.insert(tbl,item)
+	return tbl
+end
+
+
+coronaJson.setFillColor = function( o, r, g, b, a )
 	o.fillColor = {r,g,b,a}
 	return o:setFillColor(r,g,b,a)
 end
 
-coronaToJson = function(value, state)
+coronaJson.coronaToJson = function(value, state)
 	local vtable = {}
 	-- coronaJson specific
 	vtable.coronaType = value.coronaType
@@ -83,7 +92,7 @@ end
 local cs = display.getCurrentStage()
 cs.coronaType = "Stage"
 local csmt = getmetatable(cs)
-csmt.__tojson = coronaToJson
+csmt.__tojson = coronaJson.coronaToJson
 
 --
 
@@ -112,11 +121,11 @@ local setCommonProperties = function( o, t )
 		o:setFillColor(o.fillColor[1], o.fillColor[2],o.fillColor[3])
 	end
 	if(o.name) then
-		jsonObjects[o.name] = o
+		coronaJson.objRegister(o.name, o)
 	end
 	if(o.eventListener) then
 		for n,h in pairs(o.eventListener) do
-			o:addEventListener( h[1], jsonEventHandlers[h[2]] )
+			o:addEventListener( h[1], coronaJson.objRegistry(h[2]) )
 		end
 	end
 end
@@ -145,8 +154,7 @@ local createNewRect = function( t, p )
 	end
 end
 
-local createNewGroup
-createNewGroup = function( t, p )
+local createNewGroup = function( t, p )
 	print("createNewGroup")
 	local o
 	if(p) then
@@ -159,7 +167,7 @@ createNewGroup = function( t, p )
 	end
 	-- create group's children first before setting props
 	for i,v in ipairs(t.children) do
-		tableToCorona( v, o )
+		coronaJson.tableToCorona( v, o )
 	end	
 	--
 	setCommonProperties( o, t )
@@ -172,7 +180,7 @@ createNewGroup = function( t, p )
 	
 end
 
-tableToCorona = function (t,p)
+coronaJson.tableToCorona = function (t,p)
 	--
 	print("tableToCorona")
 	if(t.coronaType == "Stage") then
@@ -185,11 +193,13 @@ tableToCorona = function (t,p)
 	elseif(t.coronaType == "Rect") then
 		createNewRect(t,p)
 	else
-		print("else... unimplemented:", v.coronaType)
+		print("else... unimplemented:", t.coronaType)
 	end
 end
 
-jsonToCorona = function(s)
-	local t = json.decode(s)
-	return tableToCorona(t)
+coronaJson.jsonToCorona = function(s)
+	local tbl = json.decode(s)
+	return coronaJson.tableToCorona(tbl)
 end
+
+return coronaJson
