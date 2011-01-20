@@ -53,11 +53,13 @@ coronaJson.coronaToJson = function(value, state)
 	vtable.alpha = value.alpha
 	vtable.fillColor = value.fillColor
 	vtable.height = value.height
+	vtable.imageFile = value.imageFile
 	vtable.isVisible = value.isVisible
 	vtable.isHitTestable = value.isHitTestable
 	vtable.rotation = value.rotation
 	vtable.x = value.x
 	vtable.xOrigin = value.xOrigin
+	vtable.radius = value.radius
 	vtable.xReference = value.xReference
 	vtable.xScale = value.xScale
 	vtable.y = value.y
@@ -72,6 +74,14 @@ coronaJson.coronaToJson = function(value, state)
 		local vx, vy = value:getLinearVelocity()
 		vtable.linearVelocity = {vx, vy}
 		vtable.bodyProp = value.bodyProp
+		vtable.angularDamping = value.angularDamping
+		vtable.linearDamping = value.linearDamping
+		vtable.angularVelocity = value.angularVelocity
+		vtable.isFixedRotation = value.isFixedRotation
+		vtable.isSleepingAllowed = value.isSleepingAllowed
+		vtable.isBullet = value.isBullet
+		vtable.isBodyActive = value.isBodyActive
+		vtable.isAwake = value.isAwake
 	end
 	-- Group specific
 	vtable.numChildren = value.numChildren
@@ -100,15 +110,16 @@ local setCommonProperties = function( o, t )
 	o.coronaType = t.coronaType
 	o.eventListener = t.eventListener
 	o.alpha = t.alpha
-	o.bodyProp = t.bodyProp
 	o.height = t.height
+	o.imageFile = t.imageFile
 	o.isVisible = t.isVisible
 	o.isHitTestable = t.isHitTestable
 	o.rotation = t.rotation
 	o.fillColor = t.fillColor
-	o.linearVelocity = t.linearVelocity
 	o.name = t.name
 	o.xOrigin = t.xOrigin
+	o.radius = t.radius
+	o.x = t.x
 	o.xReference = t.xReference
 	o.xScale = t.xScale
 	o.y = t.y
@@ -130,39 +141,63 @@ local setCommonProperties = function( o, t )
 	end
 end
 
-local createNewCircle = function( t, p )
-	print("createNewCircle")
-	local o = display.newCircle(0,0,10)
-	p:insert(o)
-	setCommonProperties( o, t )
+local setPhysicsProperties = function( o, t )
 	if(t.bodyType) then
 		-- physics body
-		physics.addBody( o, t.bodyType, o.bodyProp )
+		o.bodyType = t.bodyType
+		o.bodyProp = t.bodyProp
+		o.linearVelocity = t.linearVelocity
+		physics.addBody( o, o.bodyType, o.bodyProp )
 		o:setLinearVelocity( o.linearVelocity[1], o.linearVelocity[2] )
+		o.angularDamping = t.angularDamping
+		o.linearDamping = t.linearDamping
+		o.angularVelocity = t.angularVelocity
+		o.isFixedRotation = t.isFixedRotation
+		o.isSleepingAllowed = t.isSleepingAllowed
+		o.isBullet = t.isBullet
+		o.isBodyActive = t.isBodyActive
+		o.isAwake = t.isAwake
+		
+		--o:resetMassData()
 	end
+end
+
+
+local createNewImage = function( t, p )
+	--print("createNewImage")
+	local o = display.newImage(t.imageFile)
+	o.xScale = 2 * t.radius / t.width
+	o.yScale = 2 * t.radius / t.height
+	p:insert(o)
+	setCommonProperties( o, t )
+	setPhysicsProperties( o, t )
+end
+
+local createNewCircle = function( t, p )
+	--print("createNewCircle")
+	local o = display.newCircle(t.x,t.y,t.radius)
+	p:insert(o)
+	setCommonProperties( o, t )
+	setPhysicsProperties( o, t )
 end
 
 local createNewRect = function( t, p )
-	print("createNewRect")
+	--print("createNewRect")
 	local o = display.newRect(0,0,10,10)
 	p:insert(o)
 	setCommonProperties( o, t )
-	if(t.bodyType) then
-		-- physics body
-		physics.addBody( o, t.bodyType, o.bodyProp )
-		o:setLinearVelocity( o.linearVelocity[1], o.linearVelocity[2] )
-	end
+	setPhysicsProperties( o, t )
 end
 
 local createNewGroup = function( t, p )
-	print("createNewGroup")
+	--print("createNewGroup")
 	local o
 	if(p) then
-		print("display.newGroup")
+		--print("display.newGroup")
 		o = display.newGroup()
 		p:insert(o)
 	else
-		print("display.getCurrentStage")
+		--print("display.getCurrentStage")
 		o = display.getCurrentStage()
 	end
 	-- create group's children first before setting props
@@ -170,19 +205,16 @@ local createNewGroup = function( t, p )
 		coronaJson.tableToCorona( v, o )
 	end	
 	--
-	setCommonProperties( o, t )
-	--
-	if(o.bodyType) then
-		-- physics body
-		physics.addBody( o, o.bodyType, o.bodyProp )
-		o:setLinearVelocity( o.linearVelocity[1], o.linearVelocity[2] )
+	if(p) then
+		-- only if not currentStage then mess with its props (?)
+		setCommonProperties( o, t )
+		setPhysicsProperties( o, t )
 	end
-	
 end
 
 coronaJson.tableToCorona = function (t,p)
 	--
-	print("tableToCorona")
+	--print("tableToCorona")
 	if(t.coronaType == "Stage") then
 	--expected highest level table
 		createNewGroup(t,nil)
@@ -192,6 +224,8 @@ coronaJson.tableToCorona = function (t,p)
 		createNewCircle(t,p)
 	elseif(t.coronaType == "Rect") then
 		createNewRect(t,p)
+	elseif(t.coronaType == "Image") then
+		createNewImage(t,p)
 	else
 		print("else... unimplemented:", t.coronaType)
 	end
